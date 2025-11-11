@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		C416C6C62EC1E7D000859083 /* OpenAI in Frameworks */ = {isa = PBXBuildFile; productRef = C416C6C52EC1E7D000859083 /* OpenAI */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		C48F5EDC2EC197F000F9193B /* SeaCrab.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SeaCrab.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +27,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C416C6C62EC1E7D000859083 /* OpenAI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -65,6 +70,7 @@
 			);
 			name = SeaCrab;
 			packageProductDependencies = (
+				C416C6C52EC1E7D000859083 /* OpenAI */,
 			);
 			productName = SeaCrab;
 			productReference = C48F5EDC2EC197F000F9193B /* SeaCrab.app */;
@@ -94,6 +100,9 @@
 			);
 			mainGroup = C48F5ED32EC197F000F9193B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				C416C6C42EC1E7D000859083 /* XCRemoteSwiftPackageReference "OpenAI" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C48F5EDD2EC197F000F9193B /* Products */;
 			projectDirPath = "";
@@ -185,6 +194,7 @@
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
 		};
@@ -240,6 +250,7 @@
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
 		};
@@ -319,6 +330,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		C416C6C42EC1E7D000859083 /* XCRemoteSwiftPackageReference "OpenAI" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MacPaw/OpenAI.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.4.7;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C416C6C52EC1E7D000859083 /* OpenAI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C416C6C42EC1E7D000859083 /* XCRemoteSwiftPackageReference "OpenAI" */;
+			productName = OpenAI;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = C48F5ED42EC197F000F9193B /* Project object */;
 }
