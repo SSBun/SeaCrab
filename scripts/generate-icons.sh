@@ -36,22 +36,35 @@ else
 fi
 
 # Generate all required icon sizes
-declare -A sizes=(
-  ["16"]="icon_16x16.png"
-  ["32"]="icon_16x16@2x.png icon_32x32.png"
-  ["64"]="icon_32x32@2x.png"
-  ["128"]="icon_128x128.png"
-  ["256"]="icon_128x128@2x.png icon_256x256.png"
-  ["512"]="icon_256x256@2x.png icon_512x512.png"
-  ["1024"]="icon_512x512@2x.png"
-)
+echo "Generating 16x16 -> icon_16x16.png"
+$CONVERT "$SOURCE_IMAGE" -resize 16x16 "$OUTPUT_DIR/icon_16x16.png"
 
-for size in "${!sizes[@]}"; do
-  for filename in ${sizes[$size]}; do
-    echo "Generating ${size}x${size} -> $filename"
-    $CONVERT "$SOURCE_IMAGE" -resize ${size}x${size} "$OUTPUT_DIR/$filename"
-  done
-done
+echo "Generating 32x32 -> icon_16x16@2x.png"
+$CONVERT "$SOURCE_IMAGE" -resize 32x32 "$OUTPUT_DIR/icon_16x16@2x.png"
+
+echo "Generating 32x32 -> icon_32x32.png"
+$CONVERT "$SOURCE_IMAGE" -resize 32x32 "$OUTPUT_DIR/icon_32x32.png"
+
+echo "Generating 64x64 -> icon_32x32@2x.png"
+$CONVERT "$SOURCE_IMAGE" -resize 64x64 "$OUTPUT_DIR/icon_32x32@2x.png"
+
+echo "Generating 128x128 -> icon_128x128.png"
+$CONVERT "$SOURCE_IMAGE" -resize 128x128 "$OUTPUT_DIR/icon_128x128.png"
+
+echo "Generating 256x256 -> icon_128x128@2x.png"
+$CONVERT "$SOURCE_IMAGE" -resize 256x256 "$OUTPUT_DIR/icon_128x128@2x.png"
+
+echo "Generating 256x256 -> icon_256x256.png"
+$CONVERT "$SOURCE_IMAGE" -resize 256x256 "$OUTPUT_DIR/icon_256x256.png"
+
+echo "Generating 512x512 -> icon_256x256@2x.png"
+$CONVERT "$SOURCE_IMAGE" -resize 512x512 "$OUTPUT_DIR/icon_256x256@2x.png"
+
+echo "Generating 512x512 -> icon_512x512.png"
+$CONVERT "$SOURCE_IMAGE" -resize 512x512 "$OUTPUT_DIR/icon_512x512.png"
+
+echo "Generating 1024x1024 -> icon_512x512@2x.png"
+$CONVERT "$SOURCE_IMAGE" -resize 1024x1024 "$OUTPUT_DIR/icon_512x512@2x.png"
 
 echo -e "${GREEN}✓ All icons generated successfully!${NC}"
 
