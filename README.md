@@ -236,6 +236,55 @@ The "Test Connection" button sends a simple message to verify:
 - Try selecting text again before pressing the shortcut
 - Check accessibility permissions are granted
 
+## Building and Releasing
+
+### Development Build
+
+```bash
+open SeaCrab.xcodeproj
+# Build and run from Xcode (⌘R)
+```
+
+### Create DMG Release
+
+Use the provided script to create a DMG installer:
+
+```bash
+# Build and create DMG with version
+./scripts/create-dmg.sh 1.0.0
+
+# Build and create dev DMG
+./scripts/create-dmg.sh dev
+```
+
+The script will:
+1. Build the app in Release configuration
+2. Create a DMG file with drag-to-Applications support
+3. Generate SHA256 checksum
+
+**Requirements:**
+- Xcode 16.2+
+- Optional: `create-dmg` (`brew install create-dmg`) for better DMG styling
+
+### GitHub Release
+
+The project includes a GitHub Actions workflow that automatically:
+1. Builds the app when a new tag is pushed
+2. Creates a DMG installer
+3. Publishes a GitHub release with the DMG
+
+**To create a release:**
+
+```bash
+# Tag the release
+git tag -a v1.0.0 -m "Release version 1.0.0"
+
+# Push the tag to trigger the workflow
+git push origin v1.0.0
+```
+
+The workflow will automatically create a release at `https://github.com/YOUR_USERNAME/SeaCrab/releases`
+
 ## License
 
 Created by caishilin on 2025/11/10.

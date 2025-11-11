@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build-and-release:
+    runs-on: macos-14
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_16.0.app/Contents/Developer
+      
+      - name: Show Xcode and Swift versions
+        run: |
+          xcodebuild -version
+          swift --version
+      
+      - name: Build app
+        run: |
+          xcodebuild \
+            -scheme SeaCrab \
+            -configuration Release \
+            -derivedDataPath build \
+            -destination 'platform=macOS' \
+            clean build
+      
+      - name: Export app
+        run: |
+          # Find the built app
+          APP_PATH=$(find build -name "SeaCrab.app" -type d | head -n 1)
+          echo "App path: $APP_PATH"
+          
+          # Create Apps directory for DMG
+          mkdir -p dmg
+          cp -R "$APP_PATH" dmg/
+      
+      - name: Create DMG
+        run: |
+          # Install create-dmg if not available
+          brew install create-dmg || true
+          
+          # Extract version from tag
+          VERSION=${GITHUB_REF#refs/tags/v}
+          DMG_NAME="SeaCrab-${VERSION}.dmg"
+          
+          # Create DMG
+          create-dmg \
+            --volname "SeaCrab" \
+            --volicon "SeaCrab/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png" \
+            --window-pos 200 120 \
+            --window-size 600 400 \
+            --icon-size 100 \
+            --icon "SeaCrab.app" 175 190 \
+            --hide-extension "SeaCrab.app" \
+            --app-drop-link 425 190 \
+            --no-internet-enable \
+            "$DMG_NAME" \
+            "dmg/" || hdiutil create -volname "SeaCrab" -srcfolder dmg -ov -format UDZO "$DMG_NAME"
+          
+          echo "DMG_PATH=$DMG_NAME" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+      
+      - name: Calculate checksums
+        run: |
+          shasum -a 256 "$DMG_PATH" > "${DMG_PATH}.sha256"
+          cat "${DMG_PATH}.sha256"
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: SeaCrab v${{ env.VERSION }}
+          body: |
+            ## SeaCrab v${{ env.VERSION }}
+            
+            ### Installation
+            
+            1. Download `SeaCrab-${{ env.VERSION }}.dmg`
+            2. Open the DMG file
+            3. Drag SeaCrab.app to your Applications folder
+            4. Launch SeaCrab from Applications
+            5. Grant Accessibility permissions when prompted
+            
+            ### Setup
+            
+            1. Click the SeaCrab icon (✨) in your menu bar
+            2. Select **Settings...**
+            3. Configure your API connection (Base URL, API Key, Model)
+            4. Create refinement cards with custom prompts and shortcuts
+            5. Click **Test Connection** to verify your setup
+            
+            ### What's New
+            
+            See the [README](https://github.com/${{ github.repository }}/blob/main/README.md) for full documentation.
+            
+            ### Checksums
+            
+            ```
+            $(cat ${DMG_PATH}.sha256)
+            ```
+          files: |
+            ${{ env.DMG_PATH }}
+            ${{ env.DMG_PATH }}.sha256
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SeaCrab-${{ env.VERSION }}-dmg
+          path: ${{ env.DMG_PATH }}
+          retention-days: 30
+
