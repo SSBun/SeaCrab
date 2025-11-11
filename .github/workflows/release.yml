@@ -13,12 +13,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
       
+      - name: Select Xcode 16.2
+        run: |
+          echo "Available Xcode versions:"
+          ls /Applications/ | grep Xcode || echo "No Xcode installations found"
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || echo "Using default Xcode"
+      
       - name: Show Xcode and Swift versions
         run: |
           xcodebuild -version
           swift --version
-          echo "Available Xcode versions:"
-          ls /Applications/ | grep Xcode || echo "No Xcode installations found"
       
       - name: Build app
         run: |
