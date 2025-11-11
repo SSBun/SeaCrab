@@ -40,13 +40,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         
         if let button = statusItem?.button {
-            // Use app icon for menu bar
-            if let appIcon = NSImage(named: "AppIcon") {
-                // Resize to menu bar size (18x18 for standard, 36x36 for retina)
-                appIcon.size = NSSize(width: 18, height: 18)
-                button.image = appIcon
+            // Use custom menu bar icon (old sparkle icon, separate from app icon)
+            if let menuBarIcon = NSImage(named: "MenuBarIcon") {
+                menuBarIcon.isTemplate = true // Makes it adapt to light/dark mode
+                menuBarIcon.size = NSSize(width: 18, height: 18)
+                button.image = menuBarIcon
             } else {
-                // Fallback to SF Symbol if app icon not found
+                // Fallback to SF Symbol if menu bar icon not found
                 button.image = NSImage(systemSymbolName: "wand.and.stars", accessibilityDescription: "SeaCrab")
             }
         }

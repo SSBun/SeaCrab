@@ -110,3 +110,5 @@ iOSInjectionProject/
 *.swo
 *~
 
+*.dmg
+*.dmg.sha256

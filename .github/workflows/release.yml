@@ -39,6 +39,9 @@ jobs:
           # Create Apps directory for DMG
           mkdir -p dmg
           cp -R "$APP_PATH" dmg/
+          
+          # Create Applications symlink for easy installation
+          ln -s /Applications dmg/Applications
       
       - name: Create DMG
         run: |

@@ -37,6 +37,9 @@ echo -e "${GREEN}Creating DMG: $DMG_NAME${NC}"
 TMP_DIR=$(mktemp -d)
 cp -R "$APP_PATH" "$TMP_DIR/"
 
+# Create Applications symlink for easy installation
+ln -s /Applications "$TMP_DIR/Applications"
+
 # Check if create-dmg is installed
 if command -v create-dmg &> /dev/null; then
   echo -e "${GREEN}Using create-dmg...${NC}"
