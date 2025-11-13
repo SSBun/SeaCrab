@@ -6,12 +6,17 @@
 //
 
 import SwiftUI
+import AppKit
 
 struct SettingsView: View {
     @Bindable var settings = AppSettings.shared
     @State private var isTestingConnection = false
     @State private var testResult: String?
     @State private var showSavedIndicator = false
+    @State private var showExportSuccess = false
+    @State private var showImportSuccess = false
+    @State private var showImportError = false
+    @State private var importErrorMessage = ""
     @Environment(\.dismiss) private var dismiss
     
     var onShortcutChanged: (() -> Void)?
@@ -116,6 +121,77 @@ struct SettingsView: View {
                 Text("Refinement Cards")
             }
             
+            Section("General") {
+                Toggle("Launch at Login", isOn: $settings.launchAtLogin)
+                    .toggleStyle(.switch)
+                    .onChange(of: settings.launchAtLogin) { _, _ in showAutoSaveIndicator() }
+                
+                Text("Automatically start SeaCrab when you log in to your Mac")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
+            Section("Backup & Restore") {
+                HStack(spacing: 12) {
+                    Button {
+                        exportConfiguration()
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.up")
+                            Text("Export Configuration")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    
+                    Button {
+                        importConfiguration()
+                    } label: {
+                        HStack {
+                            Image(systemName: "square.and.arrow.down")
+                            Text("Import Configuration")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                
+                if showExportSuccess {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Configuration exported successfully")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                    .transition(.opacity)
+                }
+                
+                if showImportSuccess {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Configuration imported successfully")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                    .transition(.opacity)
+                }
+                
+                if showImportError {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.red)
+                        Text(importErrorMessage)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+                    .transition(.opacity)
+                }
+                
+                Text("Export your API settings and refinement cards to a JSON file for backup, or import from a previously exported file to restore settings")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            
             Section("Accessibility") {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
@@ -212,6 +288,91 @@ struct SettingsView: View {
         settings.addCard(newCard)
         onShortcutChanged?()
         showAutoSaveIndicator()
+    }
+    
+    private func exportConfiguration() {
+        let savePanel = NSSavePanel()
+        savePanel.allowedContentTypes = [.json]
+        savePanel.nameFieldStringValue = "SeaCrab-Configuration.json"
+        savePanel.title = "Export SeaCrab Configuration"
+        savePanel.prompt = "Export"
+        
+        savePanel.begin { response in
+            guard response == .OK, let url = savePanel.url else { return }
+            
+            do {
+                let configData = try settings.exportConfiguration()
+                try configData.write(to: url)
+                
+                DispatchQueue.main.async {
+                    showExportSuccess = true
+                    showAutoSaveIndicator()
+                    
+                    Task {
+                        try? await Task.sleep(for: .seconds(3))
+                        withAnimation {
+                            showExportSuccess = false
+                        }
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    importErrorMessage = "Failed to export: \(error.localizedDescription)"
+                    showImportError = true
+                    
+                    Task {
+                        try? await Task.sleep(for: .seconds(5))
+                        withAnimation {
+                            showImportError = false
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    private func importConfiguration() {
+        let openPanel = NSOpenPanel()
+        openPanel.allowedContentTypes = [.json]
+        openPanel.allowsMultipleSelection = false
+        openPanel.canChooseDirectories = false
+        openPanel.canChooseFiles = true
+        openPanel.title = "Import SeaCrab Configuration"
+        openPanel.prompt = "Import"
+        
+        openPanel.begin { response in
+            guard response == .OK, let url = openPanel.url else { return }
+            
+            do {
+                let configData = try Data(contentsOf: url)
+                try settings.importConfiguration(from: configData)
+                
+                DispatchQueue.main.async {
+                    showImportSuccess = true
+                    showAutoSaveIndicator()
+                    onShortcutChanged?()
+                    
+                    Task {
+                        try? await Task.sleep(for: .seconds(3))
+                        withAnimation {
+                            showImportSuccess = false
+                        }
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    importErrorMessage = "Failed to import: \(error.localizedDescription)"
+                    showImportError = true
+                    
+                    Task {
+                        try? await Task.sleep(for: .seconds(5))
+                        withAnimation {
+                            showImportError = false
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

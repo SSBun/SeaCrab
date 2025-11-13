@@ -7,7 +7,26 @@
 
 import Carbon
 import Foundation
+import ServiceManagement
 import SwiftUI
+
+// MARK: - Configuration Export/Import
+
+struct SeaCrabConfiguration: Codable {
+    let version: String
+    let apiKey: String
+    let baseURL: String
+    let model: String
+    let refinementCards: [RefinementCard]
+    
+    init(from settings: AppSettings) {
+        self.version = "1.0"
+        self.apiKey = settings.apiKey
+        self.baseURL = settings.baseURL
+        self.model = settings.model
+        self.refinementCards = settings.refinementCards
+    }
+}
 
 // MARK: - BuiltInPrompt
 
@@ -52,6 +71,7 @@ class AppSettings {
         static let baseURL = "baseURL"
         static let model = "model"
         static let refinementCards = "refinementCards"
+        static let launchAtLogin = "launchAtLogin"
     }
     
     var apiKey: String {
@@ -84,6 +104,14 @@ class AppSettings {
         }
     }
     
+    var launchAtLogin: Bool {
+        get { defaults.bool(forKey: Keys.launchAtLogin) }
+        set {
+            defaults.set(newValue, forKey: Keys.launchAtLogin)
+            setLaunchAtLogin(enabled: newValue)
+        }
+    }
+    
     func addCard(_ card: RefinementCard) {
         var cards = refinementCards
         cards.append(card)
@@ -104,5 +132,81 @@ class AppSettings {
         }
     }
     
+    // MARK: - Launch at Login
+    
+    private func setLaunchAtLogin(enabled: Bool) {
+        if #available(macOS 13.0, *) {
+            let service = SMAppService.mainApp
+            do {
+                if enabled {
+                    if service.status == .notRegistered {
+                        try service.register()
+                    }
+                } else {
+                    if service.status == .enabled {
+                        try service.unregister()
+                    }
+                }
+            } catch {
+                print("Failed to \(enabled ? "enable" : "disable") launch at login: \(error.localizedDescription)")
+            }
+        } else {
+            // For macOS 12 and earlier, use legacy approach
+            setLaunchAtLoginLegacy(enabled: enabled)
+        }
+    }
+    
+    private func setLaunchAtLoginLegacy(enabled: Bool) {
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.csl.cool.SeaCrab"
+        let itemURL = Bundle.main.bundleURL
+        
+        if enabled {
+            // Add to login items using LSSharedFileList (deprecated but still works on older systems)
+            if let loginItems = LSSharedFileListCreate(nil, kLSSharedFileListSessionLoginItems.takeRetainedValue(), nil)?.takeRetainedValue() {
+                LSSharedFileListInsertItemURL(
+                    loginItems,
+                    kLSSharedFileListItemLast.takeRetainedValue(),
+                    nil,
+                    nil,
+                    itemURL as CFURL,
+                    nil,
+                    nil
+                )
+            }
+        } else {
+            // Remove from login items
+            if let loginItems = LSSharedFileListCreate(nil, kLSSharedFileListSessionLoginItems.takeRetainedValue(), nil)?.takeRetainedValue() {
+                if let snapshot = LSSharedFileListCopySnapshot(loginItems, nil)?.takeRetainedValue() as? [LSSharedFileListItem] {
+                    for item in snapshot {
+                        if let itemURL = LSSharedFileListItemCopyResolvedURL(item, 0, nil)?.takeRetainedValue() as URL? {
+                            if itemURL == Bundle.main.bundleURL {
+                                LSSharedFileListItemRemove(loginItems, item)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     private init() {}
+    
+    // MARK: - Export/Import
+    
+    /// Export configuration to JSON data
+    func exportConfiguration() throws -> Data {
+        let config = SeaCrabConfiguration(from: self)
+        return try JSONEncoder().encode(config)
+    }
+    
+    /// Import configuration from JSON data
+    func importConfiguration(from data: Data) throws {
+        let config = try JSONDecoder().decode(SeaCrabConfiguration.self, from: data)
+        
+        // Update settings
+        apiKey = config.apiKey
+        baseURL = config.baseURL
+        model = config.model
+        refinementCards = config.refinementCards
+    }
 }
