@@ -17,9 +17,26 @@ struct SettingsView: View {
     @State private var showImportSuccess = false
     @State private var showImportError = false
     @State private var importErrorMessage = ""
+    @State private var latestVersion: String?
+    @State private var isCheckingUpdate = false
     @Environment(\.dismiss) private var dismiss
     
     var onShortcutChanged: (() -> Void)?
+    
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+    
+    private var appBuildNumber: String? {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+    }
+    
+    private var hasNewVersion: Bool {
+        guard let latest = latestVersion else { return false }
+        return compareVersions(current: appVersion, latest: latest) == .orderedAscending
+    }
+    
+    private let githubRepoURL = "https://github.com/SSBun/SeaCrab"
     
     var body: some View {
         Form {
@@ -215,8 +232,53 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 550, height: 600)
+        .frame(width: 550, height: 640)
         .navigationTitle("SeaCrab Settings")
+        .safeAreaInset(edge: .bottom) {
+            Button(action: openGitHubRelease) {
+                HStack(spacing: 6) {
+                    VStack(spacing: 4) {
+                        Text("SeaCrab")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        HStack(spacing: 4) {
+                            Text("Version")
+                            Text(appVersion)
+                            if let buildNumber = appBuildNumber {
+                                Text("(\(buildNumber))")
+                            }
+                            
+                            if isCheckingUpdate {
+                                ProgressView()
+                                    .scaleEffect(0.5)
+                                    .frame(width: 12, height: 12)
+                            } else if hasNewVersion, let latest = latestVersion {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .foregroundColor(.green)
+                                    .help("New version \(latest) available")
+                            }
+                        }
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .background(Color(nsColor: .windowBackgroundColor))
+            .onHover { hovering in
+                if hovering {
+                    NSCursor.pointingHand.push()
+                } else {
+                    NSCursor.pop()
+                }
+            }
+        }
+        .task {
+            await checkForUpdates()
+        }
     }
     
     private func testConnection() {
@@ -373,6 +435,63 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+    
+    private func openGitHubRelease() {
+        if let url = URL(string: "\(githubRepoURL)/releases") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+    
+    private func checkForUpdates() async {
+        isCheckingUpdate = true
+        defer { isCheckingUpdate = false }
+        
+        guard let url = URL(string: "https://api.github.com/repos/SSBun/SeaCrab/releases/latest") else {
+            return
+        }
+        
+        do {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            
+            struct GitHubRelease: Codable {
+                let tag_name: String
+            }
+            
+            let release = try JSONDecoder().decode(GitHubRelease.self, from: data)
+            
+            // Remove 'v' prefix if present
+            let version = release.tag_name.hasPrefix("v") 
+                ? String(release.tag_name.dropFirst()) 
+                : release.tag_name
+            
+            await MainActor.run {
+                latestVersion = version
+            }
+        } catch {
+            // Silently fail - version check is not critical
+            print("Failed to check for updates: \(error)")
+        }
+    }
+    
+    private func compareVersions(current: String, latest: String) -> ComparisonResult {
+        let currentComponents = current.split(separator: ".").compactMap { Int($0) }
+        let latestComponents = latest.split(separator: ".").compactMap { Int($0) }
+        
+        let maxLength = max(currentComponents.count, latestComponents.count)
+        
+        for i in 0..<maxLength {
+            let currentValue = i < currentComponents.count ? currentComponents[i] : 0
+            let latestValue = i < latestComponents.count ? latestComponents[i] : 0
+            
+            if currentValue < latestValue {
+                return .orderedAscending
+            } else if currentValue > latestValue {
+                return .orderedDescending
+            }
+        }
+        
+        return .orderedSame
     }
 }
 
