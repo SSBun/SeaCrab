@@ -121,7 +121,8 @@ actor LLMService {
                 throw LLMError.invalidResponse
             }
             
-            return content.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+            // Only trim spaces and tabs, but preserve line breaks to maintain text structure
+            return content.trimmingCharacters(in: .whitespaces)
         } catch {
             throw LLMError.networkError(error)
         }

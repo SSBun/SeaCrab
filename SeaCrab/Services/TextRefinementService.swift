@@ -39,15 +39,27 @@ class TextRefinementService: ObservableObject {
                 // Step 2: Send to LLM for refinement using the card's prompt
                 let refinedText = try await llmService.refineText(selectedText, prompt: card.prompt)
                 
-                // Step 3: Replace text with refined version
-                // If we have element AND no selection, set value directly (no selection highlight)
-                // If text was selected, use clipboard/paste to preserve selection behavior
-                if let element = element, !hasSelection {
-                    // No selection - replace entire field directly (no visual selection)
-                    await replaceTextViaAccessibility(element: element, text: refinedText)
+                // Step 3: Check if text has actually changed
+                if refinedText == selectedText {
+                    // Text unchanged - cancel any selection to avoid leaving highlight
+                    // If there was a selection (hasSelection = true) or no element, use key press to deselect
+                    if hasSelection || element == nil {
+                        await deselectViaKeyPress()
+                    } else if let element = element {
+                        // No selection but have element - use accessibility API
+                        await cancelSelection(element: element)
+                    }
                 } else {
-                    // Has selection or no element - use clipboard/paste method
-                    await replaceSelectedText(with: refinedText)
+                    // Step 4: Replace text with refined version
+                    // If we have element AND no selection, set value directly (no selection highlight)
+                    // If text was selected, use clipboard/paste to preserve selection behavior
+                    if let element = element, !hasSelection {
+                        // No selection - replace entire field directly (no visual selection)
+                        await replaceTextViaAccessibility(element: element, text: refinedText)
+                    } else {
+                        // Has selection or no element - use clipboard/paste method
+                        await replaceSelectedText(with: refinedText)
+                    }
                 }
                 
             } catch {
@@ -156,6 +168,43 @@ class TextRefinementService: ObservableObject {
         }
         
         return nil
+    }
+    
+    /// Deselect text by simulating Right Arrow key press (works when Accessibility API not available)
+    private func deselectViaKeyPress() async {
+        let source = CGEventSource(stateID: .hidSystemState)
+        
+        // Simulate Right Arrow key press to move cursor and deselect
+        // Virtual key code for Right Arrow is 0x7C
+        let keyDown = CGEvent(keyboardEventSource: source, virtualKey: 0x7C, keyDown: true)
+        let keyUp = CGEvent(keyboardEventSource: source, virtualKey: 0x7C, keyDown: false)
+        
+        keyDown?.post(tap: .cghidEventTap)
+        try? await Task.sleep(for: .milliseconds(50))
+        keyUp?.post(tap: .cghidEventTap)
+    }
+    
+    /// Cancel selection by setting cursor to end (removes highlight without changing text)
+    private func cancelSelection(element: AXUIElement) async {
+        // Get current text length
+        var value: AnyObject?
+        let valueResult = AXUIElementCopyAttributeValue(
+            element,
+            kAXValueAttribute as CFString,
+            &value
+        )
+        
+        if valueResult == .success, let text = value as? String {
+            // Set cursor to end of text (location: text.count, length: 0) to cancel selection
+            var cursorRange = CFRange(location: text.count, length: 0)
+            if let cursorRangeValue = AXValueCreate(.cfRange, &cursorRange) {
+                AXUIElementSetAttributeValue(
+                    element,
+                    kAXSelectedTextRangeAttribute as CFString,
+                    cursorRangeValue
+                )
+            }
+        }
     }
     
     /// Replace text directly using Accessibility API (no selection highlight, no clipboard)
