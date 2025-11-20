@@ -55,22 +55,20 @@ actor LLMService {
         }
         
         // Extract host (domain) from the URL
-        // The MacPaw/OpenAI SDK expects just the hostname like "api.openai.com"
-        // not the full URL with scheme
         guard let host = baseURL.host else {
             throw LLMError.invalidURL(baseURLString)
         }
         
-        // Construct the host string with optional path
-        var hostString = host
-        if baseURL.path != "/" && !baseURL.path.isEmpty {
-            hostString += baseURL.path
-        }
+        let scheme = baseURL.scheme ?? "https"
+        let port = baseURL.port ?? (scheme == "https" ? 443 : 80)
         
-        // Construct the configuration with just the host
+        // Construct the configuration
         let configuration = OpenAI.Configuration(
             token: settings.apiKey,
-            host: hostString
+            host: host,
+            port: port,
+            scheme: scheme,
+            timeoutInterval: 60.0
         )
         
         return OpenAI(configuration: configuration)
@@ -100,6 +98,9 @@ actor LLMService {
     }
     
     func refineText(_ text: String, prompt: String) async throws -> String {
+        // Check for cancellation before starting
+        try Task.checkCancellation()
+        
         let client = try createClient()
         
         guard let systemMessage = ChatQuery.ChatCompletionMessageParam(role: .system, content: prompt),
@@ -115,7 +116,11 @@ actor LLMService {
         )
         
         do {
+            // The library uses URLSession which handles Task cancellation automatically
             let result = try await client.chats(query: query)
+            
+            // Check again after response
+            try Task.checkCancellation()
             
             guard let content = result.choices.first?.message.content else {
                 throw LLMError.invalidResponse
@@ -123,7 +128,13 @@ actor LLMService {
             
             // Only trim spaces and tabs, but preserve line breaks to maintain text structure
             return content.trimmingCharacters(in: .whitespaces)
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
+            // Check if error is actually a cancellation
+            if (error as NSError).code == NSURLErrorCancelled {
+                throw CancellationError()
+            }
             throw LLMError.networkError(error)
         }
     }

@@ -15,11 +15,20 @@ class TextRefinementService: ObservableObject {
     private let loadingIndicator = LoadingIndicatorWindow()
     @Published var isProcessing = false
     @Published var lastError: String?
+    private var currentTask: Task<Void, Never>?
     
     func refineSelectedText(using card: RefinementCard) {
-        guard !isProcessing else { return }
+        // If processing, cancel the current task and STOP
+        if isProcessing {
+            currentTask?.cancel()
+            currentTask = nil
+            isProcessing = false
+            loadingIndicator.hide()
+            print("Refinement task cancelled by user")
+            return // Do NOT start a new task
+        }
         
-        Task {
+        currentTask = Task {
             isProcessing = true
             lastError = nil
             
@@ -27,17 +36,30 @@ class TextRefinementService: ObservableObject {
             loadingIndicator.show()
             
             do {
+                // Check for cancellation
+                try Task.checkCancellation()
+                
                 // Step 1: Get selected text (prefer Accessibility API, fallback to clipboard)
                 let textResult = await getSelectedText()
+                
+                try Task.checkCancellation()
+                
                 guard let (selectedText, element, hasSelection) = textResult else {
-                    lastError = "No text selected"
-                    loadingIndicator.hide()
-                    isProcessing = false
+                    if !Task.isCancelled {
+                        lastError = "No text selected"
+                    }
+                    // Only hide if we are still the current task (not cancelled by a new one)
+                    if !Task.isCancelled {
+                        loadingIndicator.hide()
+                        isProcessing = false
+                    }
                     return
                 }
                 
                 // Step 2: Send to LLM for refinement using the card's prompt
                 let refinedText = try await llmService.refineText(selectedText, prompt: card.prompt)
+                
+                try Task.checkCancellation()
                 
                 // Step 3: Check if text has actually changed
                 if refinedText == selectedText {
@@ -62,13 +84,22 @@ class TextRefinementService: ObservableObject {
                     }
                 }
                 
+            } catch is CancellationError {
+                // Task was cancelled - clean up silently
+                print("Refinement task cancelled")
             } catch {
-                lastError = error.localizedDescription
+                // Only show error if not cancelled
+                if !Task.isCancelled {
+                    lastError = error.localizedDescription
+                }
             }
             
-            // Hide loading indicator
-            loadingIndicator.hide()
-            isProcessing = false
+            // Hide loading indicator only if we are not cancelled (if cancelled, the new task handles UI)
+            if !Task.isCancelled {
+                loadingIndicator.hide()
+                isProcessing = false
+                currentTask = nil
+            }
         }
     }
     
